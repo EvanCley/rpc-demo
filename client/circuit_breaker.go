@@ -11,6 +11,7 @@ type CircuitBreaker interface {
 	Fail(err error)
 }
 
+// DefaultCircuitBreaker 暂时实现了简单的基于时间窗口的熔断器
 type DefaultCircuitBreaker struct {
 	lastFail  time.Time
 	fails     uint64
@@ -23,16 +24,8 @@ func (cb *DefaultCircuitBreaker) AllowRequest() bool {
 		cb.reset()
 		return true
 	}
-
 	failures := atomic.LoadUint64(&cb.fails)
 	return failures < cb.threshold
-}
-
-func NewDefaultCircuitBreaker(threshold uint64, window time.Duration) *DefaultCircuitBreaker {
-	return &DefaultCircuitBreaker{
-		threshold: threshold,
-		window:    window,
-	}
 }
 
 func (cb *DefaultCircuitBreaker) Success() {
@@ -47,4 +40,11 @@ func (cb *DefaultCircuitBreaker) Fail() {
 func (cb *DefaultCircuitBreaker) reset() {
 	atomic.StoreUint64(&cb.fails, 0)
 	cb.lastFail = time.Now()
+}
+
+func NewDefaultCircuitBreaker(threshold uint64, window time.Duration) *DefaultCircuitBreaker {
+	return &DefaultCircuitBreaker{
+		threshold: threshold,
+		window:    window,
+	}
 }

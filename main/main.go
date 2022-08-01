@@ -5,10 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/docker/libkv/store"
 	"github.com/megaredfan/rpc-demo/client"
 	"github.com/megaredfan/rpc-demo/codec"
 	"github.com/megaredfan/rpc-demo/protocol"
-	"github.com/megaredfan/rpc-demo/registry/memory"
+	"github.com/megaredfan/rpc-demo/registry/libkv"
 	"github.com/megaredfan/rpc-demo/server"
 	"github.com/megaredfan/rpc-demo/service"
 	"github.com/opentracing/opentracing-go"
@@ -27,7 +28,7 @@ const callTimes = 11
 var s1, s2, s3 server.RPCServer
 
 func main() {
-	opentracing.SetGlobalTracer(mocktracer.New())
+	opentracing.SetGlobalTracer(mocktracer.New()) // mocktracker 是mock的追踪，只限于测试目的使用
 	StartServer()
 	time.Sleep(2e9)
 	start := time.Now()
@@ -94,9 +95,12 @@ func StopServer() {
 	s3.Close()
 }
 
+var Registry = libkv.NewKVRegistry(store.ETCD, []string{"127.0.0.1:2181"}, "my-app",
+	nil, "/mns/sankuai/service", 1e10)
+
+//var Registry = memory.NewInMemoryRegistry()
 //var Registry = zookeeper.NewZookeeperRegistry("my-app", "/mns/sankuai/service",
 //	[]string{"127.0.0.1:2181"}, 1e10, nil)
-var Registry = memory.NewInMemoryRegistry()
 
 func StartServer() {
 	go func() {

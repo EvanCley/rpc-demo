@@ -1,19 +1,19 @@
 package registry
 
 type Registry interface {
-	Register(option RegisterOption, provider ...Provider)
-	Unregister(option RegisterOption, provider ...Provider)
-	GetServiceList() []Provider
-	Watch() Watcher
-	Unwatch(watcher Watcher)
+	Register(option RegisterOption, provider ...Provider)   // 注册
+	Unregister(option RegisterOption, provider ...Provider) // 注销
+	GetServiceList() []Provider                             // 获取服务列表
+	Watch() Watcher                                         // 监听服务列表的变化
+	Unwatch(watcher Watcher)                                // 取消监听
 }
 
 type RegisterOption struct {
-	AppKey string
+	AppKey string // AppKey用于唯一标识某个应用，比如com.meituan.demo.rpc.server
 }
 
 type Watcher interface {
-	Next() (*Event, error)
+	Next() (*Event, error) // 获取下一次服务列表的更新
 	Close()
 }
 
@@ -25,11 +25,13 @@ const (
 	Delete
 )
 
+// Event 事件表示一次更新
 type Event struct {
 	AppKey    string
 	Providers []Provider
 }
 
+// Provider 某个具体的服务提供者
 type Provider struct {
 	ProviderKey string // Network+"@"+Addr
 	Network     string
@@ -37,6 +39,7 @@ type Provider struct {
 	Meta        map[string]interface{}
 }
 
+// Peer2PeerDiscovery 下面就是服务端与客户端直连的接口实现
 type Peer2PeerDiscovery struct {
 	providers []Provider
 }

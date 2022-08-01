@@ -317,19 +317,19 @@ func (c *sgClient) heartbeat() {
 	if c.option.HeartbeatInterval <= 0 {
 		return
 	}
-	//根据指定的时间间隔发送心跳
+	// 根据指定的时间间隔发送心跳
 	t := time.NewTicker(c.option.HeartbeatInterval)
 	for range t.C {
 		if c.shutdown {
 			t.Stop()
 			return
 		}
-		//遍历每个RPCClient进行心跳检查
+		// 遍历每个RPCClient进行心跳检查
 		c.clients.Range(func(k, v interface{}) bool {
 			err := v.(RPCClient).Call(context.Background(), "", "", nil)
 			c.mu.Lock()
 			if err != nil {
-				//心跳失败进行计数
+				// 心跳失败进行计数
 				if fail, ok := c.clientsHeartbeatFail[k.(string)]; ok {
 					fail++
 					c.clientsHeartbeatFail[k.(string)] = fail
@@ -337,7 +337,7 @@ func (c *sgClient) heartbeat() {
 					c.clientsHeartbeatFail[k.(string)] = 1
 				}
 			} else {
-				//心跳成功则进行恢复
+				// 心跳成功则进行恢复
 				c.clientsHeartbeatFail[k.(string)] = 0
 				c.serversMu.Lock()
 				for i, p := range c.servers {
@@ -348,7 +348,7 @@ func (c *sgClient) heartbeat() {
 				c.serversMu.Unlock()
 			}
 			c.mu.Unlock()
-			//心跳失败次数超过阈值则进行降级
+			// 心跳失败次数超过阈值则进行降级
 			if c.clientsHeartbeatFail[k.(string)] > c.option.HeartbeatDegradeThreshold {
 				c.serversMu.Lock()
 				for i, p := range c.servers {

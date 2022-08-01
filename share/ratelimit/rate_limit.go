@@ -6,9 +6,9 @@ import (
 )
 
 type RateLimiter interface {
-	Acquire()
-	TryAcquire() bool
-	AcquireWithTimeout(duration time.Duration) error
+	Acquire()                                        // 获取许可，会阻塞直到获得许可
+	TryAcquire() bool                                // 尝试获取许可，如果不成功会立即返回false，而不是一直阻塞
+	AcquireWithTimeout(duration time.Duration) error // 获取许可，会阻塞直到获得许可或者超时，超时时会返回一个超时异常，成功时返回nil
 }
 
 type DefaultRateLimiter struct {

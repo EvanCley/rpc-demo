@@ -19,18 +19,16 @@ import (
 	"time"
 )
 
+// KVRegistry 的定义，就是从上一篇的ZookeeperRegistry改过来的
 type KVRegistry struct {
-	AppKey         string        //KVRegistry
-	ServicePath    string        //数据存储的基本路径位置，比如/service/providers
-	UpdateInterval time.Duration //定时拉取数据的时间间隔
-
-	kv store.Store //store实例是一个封装过的客户端
-
-	providersMu sync.RWMutex
-	providers   []registry.Provider //本地缓存的列表
-
-	watchersMu sync.Mutex
-	watchers   []*Watcher //watcher列表
+	AppKey         string        // KVRegistry
+	ServicePath    string        // 数据存储的基本路径位置，比如/service/providers
+	UpdateInterval time.Duration // 定时拉取数据的时间间隔
+	kv             store.Store   // store实例是一个封装过的客户端
+	providersMu    sync.RWMutex
+	providers      []registry.Provider // 本地缓存的列表
+	watchersMu     sync.Mutex          // 锁
+	watchers       []*Watcher          // watcher列表
 }
 
 type Watcher struct {
@@ -58,13 +56,14 @@ func (w *Watcher) Close() {
 	}
 }
 
+// NewKVRegistry 初始化逻辑，根据backend参数的不同支持不同的底层数据源
 func NewKVRegistry(backend store.Backend,
 	addrs []string,
 	AppKey string,
 	cfg *store.Config,
 	ServicePath string,
 	updateInterval time.Duration) registry.Registry {
-
+	// libkv 中需要显式初始化数据源
 	switch backend {
 	case store.ZK:
 		zookeeper.Register()
@@ -80,7 +79,7 @@ func NewKVRegistry(backend store.Backend,
 	r.AppKey = AppKey
 	r.ServicePath = ServicePath
 	r.UpdateInterval = updateInterval
-
+	// 生成实际的数据源
 	kv, err := libkv.NewStore(backend, addrs, cfg)
 	if err != nil {
 		log.Fatalf("cannot create kv registry: %v", err)
@@ -93,37 +92,33 @@ func NewKVRegistry(backend store.Backend,
 		r.ServicePath = basePath
 	}
 
-	//先创建基本路径
+	// 先创建基本路径
 	err = r.kv.Put(basePath, []byte("base path"), &store.WriteOptions{IsDir: true})
 	if err != nil {
 		log.Fatalf("cannot create regitry path %s: %v", r.ServicePath, err)
 	}
-
-	//显式拉取一次数据
+	// 显式拉取一次数据
 	r.doGetServiceList()
 	go func() {
 		t := time.NewTicker(updateInterval)
-
 		for range t.C {
-			//定时拉取数据
+			// 接着定时拉取数据
 			r.doGetServiceList()
 		}
 	}()
-
 	go func() {
-		//watch数据
+		// watch数据
 		r.watch()
 	}()
 	return r
 }
 
 func (r *KVRegistry) watch() {
-	//每次watch到数据后都需要重新watch，所以是一个死循环
+	// 每次watch到数据后都需要重新watch，所以是一个死循环
 	for {
-		//监听appkey对应的目录,一旦父级目录的数据有变更就重新读取服务列表
+		// 监听appkey对应的目录,一旦父级目录的数据有变更就重新读取服务列表
 		appkeyPath := constructServiceBasePath(r.ServicePath, r.AppKey)
-
-		//监听时先检查路径是否存在
+		// 监听时先检查路径是否存在
 		if exist, _ := r.kv.Exists(appkeyPath); exist {
 			lastUpdate := strconv.Itoa(int(time.Now().UnixNano()))
 			err := r.kv.Put(appkeyPath, []byte(lastUpdate), &store.WriteOptions{IsDir: true})
@@ -138,16 +133,15 @@ func (r *KVRegistry) watch() {
 
 		watchFinish := false
 		for !watchFinish {
-			//循环读取watch到的数据
+			// 循环读取watch到的数据
 			select {
 			case pairs := <-ch:
 				if pairs == nil {
 					log.Printf("read finish")
-					//watch数据结束，跳出这次循环
+					// watch数据结束，跳出这次循环
 					watchFinish = true
 				}
-
-				//重新读取服务列表
+				// 重新读取服务列表
 				latestPairs, err := r.kv.List(appkeyPath)
 				if err != nil {
 					watchFinish = true
@@ -165,7 +159,7 @@ func (r *KVRegistry) watch() {
 				r.providers = list
 				r.providersMu.Unlock()
 
-				//通知watcher
+				// 通知watcher
 				for _, w := range r.watchers {
 					w.event <- &registry.Event{AppKey: r.AppKey, Providers: list}
 				}
@@ -176,7 +170,6 @@ func (r *KVRegistry) watch() {
 
 func (r *KVRegistry) Register(option registry.RegisterOption, provider ...registry.Provider) {
 	serviceBasePath := constructServiceBasePath(r.ServicePath, option.AppKey)
-
 	for _, p := range provider {
 		if p.Addr[0] == ':' {
 			p.Addr = share.LocalIpV4() + p.Addr
@@ -187,7 +180,6 @@ func (r *KVRegistry) Register(option registry.RegisterOption, provider ...regist
 		if err != nil {
 			log.Printf("libkv register error: %v, provider: %v", err, p)
 		}
-
 		//注册时更新父级目录触发watch
 		lastUpdate := strconv.Itoa(int(time.Now().UnixNano()))
 		err = r.kv.Put(serviceBasePath, []byte(lastUpdate), nil)
@@ -199,7 +191,6 @@ func (r *KVRegistry) Register(option registry.RegisterOption, provider ...regist
 
 func (r *KVRegistry) Unregister(option registry.RegisterOption, provider ...registry.Provider) {
 	serviceBasePath := constructServiceBasePath(r.ServicePath, option.AppKey)
-
 	for _, p := range provider {
 		if p.Addr[0] == ':' {
 			p.Addr = share.LocalIpV4() + p.Addr
@@ -209,7 +200,6 @@ func (r *KVRegistry) Unregister(option registry.RegisterOption, provider ...regi
 		if err != nil {
 			log.Printf("libkv unregister error: %v, provider: %v", err, p)
 		}
-
 		//注销时更新父级目录触发watch
 		lastUpdate := strconv.Itoa(int(time.Now().UnixNano()))
 		err = r.kv.Put(serviceBasePath, []byte(lastUpdate), nil)
@@ -228,7 +218,6 @@ func (r *KVRegistry) GetServiceList() []registry.Provider {
 func (r *KVRegistry) doGetServiceList() {
 	path := constructServiceBasePath(r.ServicePath, r.AppKey)
 	kvPairs, err := r.kv.List(path)
-
 	var list []registry.Provider
 	if err != nil {
 		log.Printf("error get service list %v", err)

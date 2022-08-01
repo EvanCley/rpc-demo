@@ -19,11 +19,12 @@ func (*OpenTracingInterceptor) WrapHandleRequest(s *SGServer, requestFunc Handle
 	return func(ctx context.Context, request *protocol.Message, response *protocol.Message, tr transport.Transport) {
 		if protocol.MessageTypeHeartbeat != request.MessageType {
 			meta := metadata.FromContext(ctx)
+			// 从 metadata ctx 中提取追踪信息
 			spanContext, err := opentracing.GlobalTracer().Extract(opentracing.TextMap, &trace.MetaDataCarrier{&meta})
 			if err != nil && err != opentracing.ErrSpanContextNotFound {
 				log.Printf("extract span from meta error: %v", err)
 			}
-
+			// 开始服务端埋点
 			serverSpan := opentracing.StartSpan(
 				request.ServiceName+"."+request.MethodName,
 				ext.RPCServerOption(spanContext),

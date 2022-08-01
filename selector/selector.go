@@ -15,6 +15,7 @@ func init() {
 
 var ErrEmptyProviderList = errors.New("provider list is empty")
 
+// Filter 用于自定义规则过滤某个节点
 type Filter func(provider registry.Provider, ctx context.Context, ServiceMethod string, arg interface{}) bool
 
 type SelectOption struct {
@@ -57,6 +58,7 @@ type Selector interface {
 	Next(providers []registry.Provider, ctx context.Context, ServiceMethod string, arg interface{}, opt SelectOption) (registry.Provider, error)
 }
 
+// RandomSelector 随即策略的负载均衡
 type RandomSelector struct {
 }
 
@@ -70,7 +72,6 @@ func (RandomSelector) Next(providers []registry.Provider, ctx context.Context, S
 			list = append(list, p)
 		}
 	}
-
 	if len(list) == 0 {
 		err = ErrEmptyProviderList
 		return
