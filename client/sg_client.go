@@ -85,7 +85,7 @@ func (c *sgClient) Call(ctx context.Context, ServiceMethod string, arg interface
 			}
 
 			c.removeClient(provider.ProviderKey, rpcClient)
-			rpcClient, connectErr = c.getClient(provider)
+			rpcClient, connectErr = c.getClient(provider) // 这里还是沿用之前的服务端
 		}
 
 		if err == nil {
@@ -127,7 +127,7 @@ func (c *sgClient) Call(ctx context.Context, ServiceMethod string, arg interface
 			}
 
 			c.removeClient(provider.ProviderKey, rpcClient)
-			provider, rpcClient, connectErr = c.selectClient(ctx, ServiceMethod, arg)
+			provider, rpcClient, connectErr = c.selectClient(ctx, ServiceMethod, arg) // 这里要重新选择服务端
 		}
 		if err == nil {
 			err = connectErr

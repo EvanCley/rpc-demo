@@ -37,7 +37,8 @@ func (cb *DefaultCircuitBreaker) Fail() {
 	cb.lastFail = time.Now()
 }
 
-func (cb *DefaultCircuitBreaker) reset() {
+func (
+	cb *DefaultCircuitBreaker) reset() {
 	atomic.StoreUint64(&cb.fails, 0)
 	cb.lastFail = time.Now()
 }

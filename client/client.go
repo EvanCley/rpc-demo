@@ -89,8 +89,8 @@ func (c *simpleClient) Go(ctx context.Context, serviceMethod string, args interf
 	call.Args = args
 	call.Reply = reply
 
-	if done == nil {
-		done = make(chan *Call, 10) // buffered.
+	if done == nil { // 如果是 nil 则为异步调用
+		done = make(chan *Call, 10) // buffered. 缓冲
 	} else {
 		if cap(done) == 0 {
 			log.Panic("rpc: done channel is unbuffered")
@@ -136,6 +136,7 @@ func (c *simpleClient) Close() error {
 	return nil
 }
 
+// send 方法是将参数序列化并通过传输层的接口发送出去，同时将请求缓存到`pendingCalls`中
 func (c *simpleClient) send(ctx context.Context, call *Call) {
 	seq := ctx.Value(protocol.RequestSeqKey).(uint64)
 	c.pendingCalls.Store(seq, call)
